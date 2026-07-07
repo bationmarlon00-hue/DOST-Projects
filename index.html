@@ -660,8 +660,7 @@
             }
         };
 
-        // Info Modal Logic
-        function openModal(sensorType) {
+         function openModal(sensorType) {
             const data = sensorInfo[sensorType];
             if(data) {
                 document.getElementById('modalTitle').innerHTML = data.title;
@@ -670,54 +669,100 @@
                 document.getElementById('infoModal').classList.add('show');
             }
         }
+        function closeModal(force = false) { document.getElementById('infoModal').classList.remove('show'); }
 
-        function closeModal(force = false) {
-            document.getElementById('infoModal').classList.remove('show');
-        }
-
-        // ==========================================
-        // CHART CONFIGURATIONS
-        // ==========================================
         const donutChart = echarts.init(document.getElementById('donut-chart'));
         const lineChart = echarts.init(document.getElementById('line-chart'));
-        
-        // Setup the invisible chart inside the modal
         const modalChart = echarts.init(document.getElementById('modal-chart-canvas'));
         let currentOpenChart = null;
 
         const donutOption = {
+            tooltip: { trigger: 'item', textStyle: { fontFamily: 'Inter' } },
             series: [{
-                type: 'gauge',
-                startAngle: 90,
-                endAngle: -270,
-                pointer: { show: false },
-                progress: { show: true, overlap: false, roundCap: true, clip: false, itemStyle: { color: '#4caf50' } },
-                axisLine: { lineStyle: { width: 15, color: [[1, '#333']] } },
-                splitLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: { show: false },
-                data: [{ value: 0, name: 'WAITING', title: { offsetCenter: ['0%', '20%'], color: '#888', fontSize: 14, fontFamily: 'Inter' } }],
-                detail: { width: 50, height: 14, fontSize: 32, fontWeight: 700, fontFamily: 'Inter', color: '#e0e0e0', formatter: '{value}%', offsetCenter: ['0%', '-10%'] }
+                name: 'System Balance',
+                type: 'pie',
+                radius: ['35%', '55%'], // Shrank radius so labels fit perfectly
+                avoidLabelOverlap: false,
+                itemStyle: { borderColor: '#1e1e1e', borderWidth: 2 },
+                label: { 
+                    show: true, 
+                    position: 'outside',
+                    formatter: '{percent|{d}%}\n{name|{b}}',
+                    alignTo: 'none', 
+                    rich: {
+                        percent: { fontSize: 16, fontWeight: 'bold', color: '#00ffff', padding: [0, 0, 4, 0] },
+                        name: { fontSize: 11, color: '#e0e0e0', fontFamily: 'Inter', fontWeight: 500 }
+                    }
+                },
+                labelLine: { 
+                    show: true,
+                    length: 15,
+                    length2: 20,
+                    smooth: true,
+                    lineStyle: { width: 1.5, color: '#888' }
+                },
+                emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } },
+                data: [
+                    { value: 20, name: 'PM2.5 DUST', itemStyle: { color: '#4caf50' } },
+                    { value: 20, name: 'TRUE CO2', itemStyle: { color: '#4caf50' } },
+                    { value: 20, name: 'VOC LEVELS', itemStyle: { color: '#4caf50' } },
+                    { value: 20, name: 'TEMPERATURE', itemStyle: { color: '#4caf50' } },
+                    { value: 20, name: 'HUMIDITY', itemStyle: { color: '#4caf50' } }
+                ]
             }]
         };
         donutChart.setOption(donutOption);
 
         const lineOption = {
-            tooltip: { trigger: 'axis' },
-            legend: { data: ['PM2.5', 'CO2 (Scaled x0.1)'], textStyle: { color: '#888', fontFamily: 'Inter' }, bottom: 0 },
+            tooltip: { 
+                trigger: 'axis',
+                backgroundColor: '#1e1e1e',
+                borderColor: '#2d2d2d',
+                textStyle: { color: '#e0e0e0', fontFamily: 'Inter' },
+                formatter: function (params) {
+                    let tooltipText = `<div style="font-weight:700;margin-bottom:5px;border-bottom:1px solid #333;padding-bottom:3px;">${params[0].axisValue}</div>`;
+                    params.forEach(param => {
+                        let realValue = param.value;
+                        let unit = "";
+                        
+                        // Undo the visual mathematical scaling so the tooltip shows true values
+                        if (param.seriesName.includes('CO2') || param.seriesName.includes('VOC')) {
+                            realValue = (param.value * 10).toFixed(0);
+                        } else {
+                            realValue = Number(param.value).toFixed(1);
+                        }
+                        
+                        // Assign correct scientific units
+                        if (param.seriesName.includes('PM2.5')) unit = " µg/m³";
+                        else if (param.seriesName.includes('CO2')) unit = " ppm";
+                        else if (param.seriesName.includes('VOC')) unit = " raw";
+                        else if (param.seriesName.includes('Temp')) unit = " °C";
+                        else if (param.seriesName.includes('Humidity')) unit = " %";
+                        
+                        let cleanName = param.seriesName.replace(' (x0.1)', '');
+                        tooltipText += `<div>${param.marker} ${cleanName}: <span style="font-weight:700;float:right;margin-left:15px;color:${param.color}">${realValue}${unit}</span></div>`;
+                    });
+                    return tooltipText;
+                }
+            },
+            legend: { 
+                data: ['PM2.5', 'CO2 (x0.1)', 'VOC (x0.1)', 'Temp', 'Humidity'], 
+                textStyle: { color: '#888', fontFamily: 'Inter' }, 
+                bottom: 0 
+            },
             grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
             xAxis: { type: 'category', boundaryGap: false, data: [], axisLabel: { color: '#888', fontFamily: 'Inter' } },
             yAxis: { type: 'value', splitLine: { lineStyle: { color: '#333' } }, axisLabel: { color: '#888', fontFamily: 'Inter' } },
             series: [
-                { name: 'PM2.5', type: 'line', smooth: true, itemStyle: { color: '#2196f3' }, data: [] },
-                { name: 'CO2 (Scaled x0.1)', type: 'line', smooth: true, itemStyle: { color: '#ff9800' }, data: [] }
+                { name: 'PM2.5', type: 'line', smooth: true, symbolSize: 8, itemStyle: { color: '#2196f3' }, data: [] },      // Blue
+                { name: 'CO2 (x0.1)', type: 'line', smooth: true, symbolSize: 8, itemStyle: { color: '#ff9800' }, data: [] }, // Orange
+                { name: 'VOC (x0.1)', type: 'line', smooth: true, symbolSize: 8, itemStyle: { color: '#e91e63' }, data: [] }, // Pink
+                { name: 'Temp', type: 'line', smooth: true, symbolSize: 8, itemStyle: { color: '#f44336' }, data: [] },       // Red
+                { name: 'Humidity', type: 'line', smooth: true, symbolSize: 8, itemStyle: { color: '#00ffff' }, data: [] }    // Cyan
             ]
         };
         lineChart.setOption(lineOption);
 
-        // ==========================================
-        // DATA FETCHING & UI UPDATE LOGIC
-        // ==========================================
         async function fetchHistoricalData() {
             const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?results=20`;
             
@@ -731,28 +776,46 @@
                 const times = [];
                 const pm25Data = [];
                 const co2Data = [];
+                const vocData = [];
+                const tempData = [];
+                const humData = [];
 
                 feeds.forEach(feed => {
                     const date = new Date(feed.created_at);
                     times.push(date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+                    
+                    // Push all 5 data feeds, applying visual scaling to massive numbers
                     pm25Data.push(feed.field2 || 0);
                     co2Data.push((feed.field1 || 0) / 10); 
+                    vocData.push((feed.field3 || 0) / 10); 
+                    tempData.push(feed.field4 || 0);
+                    humData.push(feed.field5 || 0);
                 });
 
-                lineChart.setOption({ xAxis: { data: times }, series: [{ data: pm25Data }, { data: co2Data }] });
+                // Update the chart with ALL 5 arrays
+                lineChart.setOption({ 
+                    xAxis: { data: times }, 
+                    series: [
+                        { data: pm25Data }, 
+                        { data: co2Data },
+                        { data: vocData },
+                        { data: tempData },
+                        { data: humData }
+                    ] 
+                });
 
                 const latest = feeds[feeds.length - 1];
-                let highestThreat = 0; 
 
-                highestThreat = Math.max(highestThreat, updateProgressBar('pm25', latest.field2, limits.pm25));
-                highestThreat = Math.max(highestThreat, updateProgressBar('co2', latest.field1, limits.co2));
-                highestThreat = Math.max(highestThreat, updateProgressBar('voc', latest.field3, limits.voc));
-                highestThreat = Math.max(highestThreat, updateProgressBar('temp', latest.field4, limits.temp, true));
-                highestThreat = Math.max(highestThreat, updateProgressBar('hum', latest.field5, limits.hum, true));
+                // Capture the distinct threat level of each individual sensor
+                let t_pm = updateProgressBar('pm25', latest.field2, limits.pm25);
+                let t_co2 = updateProgressBar('co2', latest.field1, limits.co2);
+                let t_voc = updateProgressBar('voc', latest.field3, limits.voc);
+                let t_temp = updateProgressBar('temp', latest.field4, limits.temp, true);
+                let t_hum = updateProgressBar('hum', latest.field5, limits.hum, true);
 
-                updateDonutChart(highestThreat);
+                // Pass all 5 threat levels to the Donut function
+                updateDonutChart(t_pm, t_co2, t_voc, t_temp, t_hum);
 
-                // If the user currently has the trend modal open, sync its data too
                 if (currentOpenChart === 'trends') {
                     modalChart.setOption(lineChart.getOption(), true);
                 }
@@ -807,47 +870,53 @@
             }
         }
 
-        function updateDonutChart(threat) {
-            let color = '#4caf50'; 
-            let label = 'SAFE';
-            let score = 100;
-            let infoText = "All environmental parameters are currently within safe regulatory limits. No hazards detected.";
-            let infoBg = "rgba(76, 175, 80, 0.1)"; // Safe green background tint
-            let infoColor = "#4caf50";
+        function getSliceConfig(threat) {
+            if (threat === 2) return { weight: 150, color: '#f44336' }; 
+            if (threat === 1) return { weight: 50, color: '#ff9800' };  
+            return { weight: 10, color: '#4caf50' };                    
+        }
 
-            if (threat === 2) { 
-                color = '#f44336'; 
-                label = 'DANGER'; 
-                score = 15; 
-                infoText = "CRITICAL: Hazardous environmental conditions detected! Immediate ventilation or evacuation recommended.";
-                infoBg = "rgba(244, 67, 54, 0.1)"; // Danger red background tint
-                infoColor = "#f44336";
-            }
-            else if (threat === 1) { 
-                color = '#ff9800'; 
-                label = 'WARN'; 
-                score = 65; 
-                infoText = "CAUTION: One or more parameters have exceeded optimal levels. Monitor the area closely for potential hazards.";
-                infoBg = "rgba(255, 152, 0, 0.1)"; // Warn orange background tint
-                infoColor = "#ff9800";
-            }
+        function updateDonutChart(t_pm, t_co2, t_voc, t_temp, t_hum) {
+            const c_pm = getSliceConfig(t_pm);
+            const c_co2 = getSliceConfig(t_co2);
+            const c_voc = getSliceConfig(t_voc);
+            const c_temp = getSliceConfig(t_temp);
+            const c_hum = getSliceConfig(t_hum);
 
-            // Update Donut Chart
             donutChart.setOption({
                 series: [{
-                    data: [{ value: score, name: label, title: { color: '#888', fontFamily: 'Inter' } }],
-                    progress: { itemStyle: { color: color } }
+                    data: [
+                        { value: c_pm.weight, name: 'PM2.5 DUST', itemStyle: { color: c_pm.color } },
+                        { value: c_co2.weight, name: 'TRUE CO2', itemStyle: { color: c_co2.color } },
+                        { value: c_voc.weight, name: 'VOC LEVELS', itemStyle: { color: c_voc.color } },
+                        { value: c_temp.weight, name: 'TEMPERATURE', itemStyle: { color: c_temp.color } },
+                        { value: c_hum.weight, name: 'HUMIDITY', itemStyle: { color: c_hum.color } }
+                    ]
                 }]
             });
 
-            // Update Dynamic Info Box below it
+            let highestThreat = Math.max(t_pm, t_co2, t_voc, t_temp, t_hum);
+            let infoText = "System Balanced: All parameters are currently within safe regulatory limits.";
+            let infoBg = "rgba(76, 175, 80, 0.1)"; 
+            let infoColor = "#4caf50";
+
+            if (highestThreat === 2) { 
+                infoText = "CRITICAL IMBALANCE: One or more parameters are severely expanding. Immediate action required.";
+                infoBg = "rgba(244, 67, 54, 0.1)"; 
+                infoColor = "#f44336";
+            }
+            else if (highestThreat === 1) { 
+                infoText = "CAUTION: System shifting out of balance. Monitor the expanding parameters closely.";
+                infoBg = "rgba(255, 152, 0, 0.1)"; 
+                infoColor = "#ff9800";
+            }
+
             const healthInfoEl = document.getElementById('health-info-text');
             healthInfoEl.innerText = infoText;
             healthInfoEl.style.backgroundColor = infoBg;
             healthInfoEl.style.color = infoColor;
             healthInfoEl.style.border = `1px solid ${infoColor}`;
             
-            // Sync modal if open
             if (currentOpenChart === 'health') {
                 modalChart.setOption(donutChart.getOption(), true);
                 const modalInfo = document.getElementById('modal-health-info');
@@ -858,7 +927,6 @@
             }
         }
 
-        // Chart Modal Logic
         function openChartModal(chartType) {
             currentOpenChart = chartType;
             const modal = document.getElementById('chartModal');
@@ -884,7 +952,7 @@
                 infoBox.style.display = "none";
             }
 
-            setTimeout(() => { modalChart.resize(); }, 50);
+            setTimeout(() => { modalChart.resize(); }, 150);
         }
 
         function closeChartModal(event) {
@@ -892,14 +960,12 @@
             currentOpenChart = null;
         }
 
-        // Resize handler for all charts
         window.addEventListener('resize', function() {
             donutChart.resize();
             lineChart.resize();
             modalChart.resize();
         });
 
-        // Initialize Fetch Loop
         fetchHistoricalData();
         setInterval(fetchHistoricalData, 15000);
 
